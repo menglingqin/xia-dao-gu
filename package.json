@@ -8,7 +8,10 @@
     "dev": "vite",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "deploy": "bash deploy.sh",
+    "deploy:python": "python deploy.py",
+    "deploy:build": "pnpm build && pnpm deploy"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
