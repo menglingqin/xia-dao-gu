@@ -1,0 +1,83 @@
+name: 部署到 AWS S3 + CloudFront
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 安装 pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 获取 pnpm 存储路径
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: 缓存 pnpm 存储
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: 安装依赖
+        run: pnpm install
+
+      - name: 运行测试
+        run: pnpm test -- --run
+
+      - name: 构建项目
+        run: pnpm build
+
+      - name: 配置 AWS 凭证
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: 上传到 S3
+        run: |
+          aws s3 sync dist s3://${{ secrets.AWS_S3_BUCKET }} \
+            --delete \
+            --cache-control "public, max-age=3600" \
+            --exclude "index.html" \
+            --exclude "*.json"
+
+          # index.html 不缓存
+          aws s3 cp dist/index.html s3://${{ secrets.AWS_S3_BUCKET }}/index.html \
+            --cache-control "public, max-age=0, must-revalidate" \
+            --content-type "text/html"
+
+      - name: 清除 CloudFront 缓存
+        if: secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID != ''
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ secrets.AWS_CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: 部署成功通知
+        run: |
+          echo "✅ 部署完成！"
+          echo "网址: https://${{ secrets.AWS_S3_BUCKET }}"
+          echo "分布: https://${{ secrets.AWS_CLOUDFRONT_DOMAIN }}"
