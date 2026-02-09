@@ -3,6 +3,13 @@
 # 适用于 Ubuntu 22.04+，需 root 权限
 
 set -e
+# 可配置部署目录：优先使用第一个脚本参数，其次使用环境变量 `DEPLOY_DIR`，否则回退到默认路径
+DEPLOY_DIR="${1:-${DEPLOY_DIR:-/home/ubuntu/xia-dao-gu}}"
+echo "Using DEPLOY_DIR=${DEPLOY_DIR}"
+if [ ! -d "$DEPLOY_DIR" ]; then
+    echo "❌ 部署目录不存在: $DEPLOY_DIR"
+    exit 1
+fi
 
 # 1. 安装 Node.js & pnpm
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
@@ -14,13 +21,15 @@ apt-get update
 apt-get install -y nginx
 
 # 3. 构建前端项目
-cd /home/ubuntu/xia-dao-gu  # 请根据实际路径修改
+cd "$DEPLOY_DIR"
 pnpm install
 pnpm build
 
 # 4. 部署到 Nginx
+# 4. 部署到 Nginx
 rm -rf /var/www/html/*
 cp -r dist/* /var/www/html/
+chown -R www-data:www-data /var/www/html || true
 
 # 5. 配置 Nginx
 cat > /etc/nginx/sites-available/default <<EOF
