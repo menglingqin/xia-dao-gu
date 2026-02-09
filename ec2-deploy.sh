@@ -50,5 +50,23 @@ systemctl restart nginx
 systemctl enable nginx
 
 # 7. 输出结果
-IP=$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4 || echo "<EC2 IP>")
-echo "✅ 部署完成！访问: http://$IP/"
+## 获取实例 IP（支持 IMDSv2），带多重回退
+# 使用短超时以防止脚本长时间阻塞
+TOKEN=$(curl -m 2 -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" || true)
+if [ -n "$TOKEN" ]; then
+    IP=$(curl -m 2 -s -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/public-ipv4 || true)
+else
+    IP=$(curl -m 2 -s http://169.254.169.254/latest/meta-data/public-ipv4 2>/dev/null || true)
+fi
+
+if [ -n "$IP" ]; then
+    echo "✅ 部署完成！访问: http://$IP/"
+else
+    # 回退到私有 IP（如果没有公网 IP）
+    LOCAL_IP=$(curl -m 2 -s http://169.254.169.254/latest/meta-data/local-ipv4 2>/dev/null || true)
+    if [ -n "$LOCAL_IP" ]; then
+        echo "✅ 部署完成！实例无公网 IP，私有 IP: http://$LOCAL_IP/（仅在同一 VPC/内网可访问）"
+    else
+        echo "✅ 部署完成！无法从实例元数据获取 IP。请检查实例是否有公网 IP，或元数据服务 IMDSv2 访问是否被限制。"
+    fi
+fi
