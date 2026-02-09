@@ -70,3 +70,35 @@ else
         echo "✅ 部署完成！无法从实例元数据获取 IP。请检查实例是否有公网 IP，或元数据服务 IMDSv2 访问是否被限制。"
     fi
 fi
+
+# 8. 自检（可通过设置 SKIP_SELF_CHECK=true 跳过）
+SKIP_SELF_CHECK="${SKIP_SELF_CHECK:-false}"
+if [ "$SKIP_SELF_CHECK" != "true" ]; then
+    echo "---"
+    echo "🔎 运行部署自检..."
+    # 优先用公网 IP 测试，其次私有 IP，其次回退到本机
+    TEST_HOST="$IP"
+    if [ -z "$TEST_HOST" ]; then
+        TEST_HOST="$LOCAL_IP"
+    fi
+
+    if [ -n "$TEST_HOST" ]; then
+        echo "测试外部访问: http://$TEST_HOST/"
+        curl -IL --max-time 10 "http://$TEST_HOST/" || echo "外部请求失败或超时"
+    else
+        echo "没有可用 IP 进行外部自检，跳过外部测试"
+    fi
+
+    echo "测试本机 localhost:"
+    curl -I --max-time 5 http://127.0.0.1 || echo "本机请求失败"
+
+    # 检查 index.html 内容摘要
+    if [ -f /var/www/html/index.html ]; then
+        echo "index.html (前 20 行):"
+        sed -n '1,20p' /var/www/html/index.html
+    else
+        echo "/var/www/html/index.html 不存在"
+    fi
+
+    echo "🔚 自检完成。若外部请求失败，请检查安全组/路由/弹性 IP 等网络配置。"
+fi
