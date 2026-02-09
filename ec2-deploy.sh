@@ -14,7 +14,7 @@ apt-get update
 apt-get install -y nginx
 
 # 3. 构建前端项目
-cd /home/ubuntu/english-site  # 请根据实际路径修改
+cd /home/ubuntu/xia-dao-gu  # 请根据实际路径修改
 pnpm install
 pnpm build
 
