@@ -1,0 +1,12 @@
+name: Archived - 部署到 AWS S3 + CloudFront
+
+# 此文件为归档版本，保存在 deploy/archive/ 以便审计与回滚。
+
+on: [workflow_dispatch]
+
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Note
+        run: echo "This is an archived copy of the S3 deploy workflow. Do not run in production."
