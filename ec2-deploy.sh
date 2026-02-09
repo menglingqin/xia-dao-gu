@@ -11,14 +11,32 @@ if [ ! -d "$DEPLOY_DIR" ]; then
     exit 1
 fi
 
-# 1. 安装 Node.js & pnpm
-curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-apt-get install -y nodejs
-npm install -g pnpm
+# 1. 安装 Node.js, pnpm 和 Nginx（仅在缺失时安装）
+# 尽量只运行一次 apt-get update
+NEED_APT_UPDATE=0
+if ! command -v node >/dev/null 2>&1; then
+    NEED_APT_UPDATE=1
+fi
+if ! command -v nginx >/dev/null 2>&1; then
+    NEED_APT_UPDATE=1
+fi
 
-# 2. 安装 Nginx
-apt-get update
-apt-get install -y nginx
+if [ "$NEED_APT_UPDATE" -eq 1 ]; then
+    apt-get update
+fi
+
+if ! command -v node >/dev/null 2>&1; then
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+    apt-get install -y nodejs
+fi
+
+if ! command -v pnpm >/dev/null 2>&1; then
+    npm install -g pnpm
+fi
+
+if ! command -v nginx >/dev/null 2>&1; then
+    apt-get install -y nginx
+fi
 
 # 3. 构建前端项目
 cd "$DEPLOY_DIR"
